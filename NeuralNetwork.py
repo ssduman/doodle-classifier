@@ -1,5 +1,4 @@
 import numpy as np
-from DoodleClassifier import *
 
 class NeuralNetwork(object):
     def __init__(self, layers=None, names=None, l_rate=0.1, epoch=1, from_load=False):
@@ -38,7 +37,7 @@ class NeuralNetwork(object):
         sum_of_exps = np.sum(exps)
         softmax = [x / sum_of_exps for x in exps]
 
-        print("output from nn: {}\n, softmax: {}\n, sum: {}\n".format(output, softmax, np.sum(softmax)))
+        print("output from nn: {}\n\n".format(output))
         predictions = np.argmax(output)
         return predictions
 
@@ -84,4 +83,3 @@ class NeuralNetwork(object):
 
     def sigmoid_prime(self, z):
         return self.sigmoid(z) * (1 - self.sigmoid(z))
-

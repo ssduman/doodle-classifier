@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import os
 
 class GUI(object):
@@ -7,6 +7,7 @@ class GUI(object):
         self.root = tk.Tk()
         self.root.title("Doodle Classifier")
         self.root.geometry("300x350")
+        self.root.bind("<Escape>", lambda e: self.root.destroy())
 
         self.frame = tk.Frame(self.root)
         self.frame.pack()
@@ -28,7 +29,7 @@ class GUI(object):
         self.num_layer = [tk.IntVar() for x in range(3)]
         self.num_layer[0].set(1)
 
-        self.c1 = tk.Checkbutton(self.frame_h, text="hidden 1:", onvalue=1, offvalue=1)
+        self.c1 = tk.Checkbutton(self.frame_h, text="hidden 1:", onvalue=1, offvalue=1, padx=5)
         self.c1.select()
         self.hidden_1 = tk.Entry(self.frame_h, width=2)
 

@@ -35,6 +35,7 @@ class DoodleClassifier(object):
 
         self.button_ok = tk.Button(self.root, text="ok!", command=self.destroy_and_create_nn)
         self.button_load = tk.Button(self.root, text="load!", command=self.load_nn)
+        self.button_show = tk.Button(self.root, text="show!", command=self.show)
 
         self.frame_r_b = tk.Frame(self.root)
         self.button_predict = tk.Button(text="predict", command=self.button_predict_f)
@@ -55,10 +56,11 @@ class DoodleClassifier(object):
 
         self.gui.grid_select_area(self.data_exist, self.num_data)
         if self.data_exist:
-            self.button_ok.pack(side=tk.BOTTOM)
-            self.button_load.pack(side=tk.BOTTOM, pady=2)
+            self.button_ok.pack(side=tk.TOP, padx=20)
+            self.button_load.pack(side=tk.LEFT, padx=35, pady=5)
+            self.button_show.pack(side=tk.RIGHT, padx=35, pady=5)
         else:
-            self.button_load.pack(side=tk.BOTTOM, pady=2)
+            self.button_load.pack(side=tk.TOP, pady=20)
 
         self.root.mainloop()
 
@@ -69,6 +71,7 @@ class DoodleClassifier(object):
 
         self.button_ok.destroy()
         self.button_load.destroy()
+        self.button_show.destroy()
 
         self.pack_draw_area()
 
@@ -101,6 +104,7 @@ class DoodleClassifier(object):
 
         self.button_ok.destroy()
         self.button_load.destroy()
+        self.button_show.destroy()
 
         self.pack_draw_area()
 
@@ -117,6 +121,26 @@ class DoodleClassifier(object):
         self.calculate_accuracy()
 
         print("time taken: {0:.2f} sec".format(time.time() - start))
+
+    def show(self):
+        all_data = None
+        first = True
+
+        for i in range(self.num_data):
+            if self.data_checkbutton[i].get() == 1:
+                name = self.all_names[i]
+                train, _ = self.prepare_data("data/full_numpy_bitmap_" + name + ".npy", [])
+                if first:
+                    all_data = np.array(train)
+                    first = False
+                else:
+                    all_data = np.concatenate([all_data, train], axis=0)
+
+        if first:
+            self.gui.popup_message("mark at least one!")
+        else:
+            np.random.shuffle(all_data)
+            self.drawNimage(all_data)
 
     def select_data(self):
         index = 0
@@ -136,7 +160,6 @@ class DoodleClassifier(object):
             self.all_data = np.concatenate([self.all_data, self.train_and_test[index][0]], axis=0)
 
         np.random.shuffle(self.all_data)
-        # self.draw10image(self.all_data)
 
     def prepare_data(self, name, y):
         data = np.load(name)
@@ -158,51 +181,47 @@ class DoodleClassifier(object):
         x2, y2 = (event.x + 0.5), (event.y + 0.5)
         self.canvas.create_oval(x1, y1, x2, y2, fill="black", width=8)
 
-    def draw1image(self, data):
-        img_data = np.full((28, 28, 3), 255, dtype=np.uint8)
-        for i in range(28):
-            for j in range(28):
-                img_data[i, j] = data[i * 28 + j]
-
-        img = Image.fromarray(img_data)
-        img.show()
-
-    def draw10image(self, data):
-        img_data = np.full((280, 280, 2), 255, dtype=np.uint8)
-        for pos in range(100):
-            x_off = (pos // 10) * 28
-            y_off = (pos % 10) * 28
+    def drawNimage(self, data, N=20):
+        img_data = np.full((28 * N, 28 * N), 255, dtype=np.uint8)
+        for pos in range(N * N):
+            x_off = (pos // N) * 28
+            y_off = (pos % N) * 28
             for i in range(28):
                 for j in range(28):
-                    a = data[pos][0][i * 28 + j]
-                    x = int(x_off) + i
-                    y = int(y_off) + j
-                    img_data[x, y] = [255 - a * 255, 255 - a * 255]
+                    if i == 27 or j == 27:
+                        x = x_off + i
+                        y = y_off + j
+                        img_data[x, y] = 0
+                    else:
+                        a = data[pos][0][i * 28 + j]
+                        x = x_off + i
+                        y = y_off + j
+                        value = 255 - a * 255
+                        img_data[x, y] = value
 
-        img = Image.fromarray(img_data)
+        img = Image.fromarray(img_data, mode="L")
         img.show()
+        img.save("show.png", quality=95)
 
     def take_ss(self):
+        # remove scaling factor if you are not using scaling (mine is %125, default is %150)
         x1 = self.root.winfo_rootx() + (self.root.winfo_rootx() * 0.25) + 5
         y1 = self.root.winfo_rooty() + (self.root.winfo_rooty() * 0.25) + 5
         x2 = x1 + self.canvas.winfo_width() + (self.canvas.winfo_width() * 0.25) - 5
         y2 = y1 + self.canvas.winfo_height() + (self.canvas.winfo_height() * 0.25) - 5
         self.img_original = ImageGrab.grab().crop((x1, y1, x2, y2))
-        self.img = self.img_original.resize((28, 28))
+        self.img = self.img_original.resize((28, 28), Image.ANTIALIAS)
 
     def button_predict_f(self):
         self.take_ss()
-        painted_to_draw = []
 
         for i in range(28):
             for j in range(28):
                 data = list(self.img.getpixel((j, i)))
-                brightness = ceil(0.2126 * data[0] + 0.7152 * data[1] + 0.0722 * data[2])
-                brightness /= 255
-                painted_to_draw.append(data)
+                brightness = ceil(0.2126 * data[0] + 0.7152 * data[1] + 0.0722 * data[2]) / 255
                 self.painted.append(1 - brightness)
 
-        # draw1image(painted)
+        # self.drawNimage([[self.painted, []]], N=1)
 
         predict_picture = self.NN.predict(self.painted)
         self.textArea.delete("1.0", tk.END)
@@ -231,7 +250,7 @@ class DoodleClassifier(object):
 
     def button_save_nn_f(self):
         self.button_save_nn.pack_forget()
-        self.NN.save()
+        self.nn.save()
 
     def predicted_false(self):
         self.button_true.pack_forget()
