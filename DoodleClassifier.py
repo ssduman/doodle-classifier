@@ -4,7 +4,8 @@ from tkinter import messagebox, ttk
 import time
 from NeuralNetwork import *
 from GUI import *
-from math import ceil
+from math import ceil, floor
+import random
 import os
 
 class DoodleClassifier(object):
@@ -14,13 +15,15 @@ class DoodleClassifier(object):
 
         self.canvas = tk.Canvas(self.root, width=300, height=300, bg="white")
 
+        np.random.seed(1)
+
         self.img = None
         self.img_original = None
 
         self.names = []
         self.all_names = {}
         self.num_data = 0
-        self.num_instance = 1000
+        self.num_instance = 5000
         self.learning_rate = 0.1
         self.epoch = 1
         self.hidden1_size = 64
@@ -39,16 +42,16 @@ class DoodleClassifier(object):
 
         self.frame_r_b = tk.Frame(self.root)
         self.button_predict = tk.Button(text="predict", command=self.button_predict_f)
-        self.button_save = tk.Button(text="save", command=lambda: self.img_original.save("draw.png"))
+        self.button_save = tk.Button(text="save", command=lambda : self.img_original.save("draw.png"))
         self.button_clear = tk.Button(text="clear", command=self.button_clear_f)
         self.textArea = tk.Text(self.frame_r_b, font=("", 10), width=25)
-
+        
         self.button_true = tk.Button(self.root, text="True!", command=self.predicted_true)
         self.button_save_nn = tk.Button(self.root, text="Save!", command=self.button_save_nn_f)
         self.button_false = tk.Button(self.root, text="False!", command=self.predicted_false)
         self.label_select_true = tk.Label(self.frame_r_b, text="select true")
         self.combo_box = tk.ttk.Combobox(self.frame_r_b, width=25)
-
+        
         self.data_exist = False
         if os.path.isdir("data"):
             self.data_exist = True
@@ -61,6 +64,12 @@ class DoodleClassifier(object):
             self.button_show.pack(side=tk.RIGHT, padx=35, pady=5)
         else:
             self.button_load.pack(side=tk.TOP, pady=20)
+
+        self.data_X = None
+        self.data_Y = None
+
+        self.test_X = None
+        self.test_Y = None
 
         self.root.mainloop()
 
@@ -80,8 +89,7 @@ class DoodleClassifier(object):
         self.NN = NeuralNetwork(None, self.names, from_load=True)
 
         if self.data_exist:
-            self.select_data()
-            self.concatenate_data()
+            self.load_selected_data()
             self.calculate_accuracy()
 
         print("time taken: {0:.2f} sec".format(time.time() - start))
@@ -110,71 +118,81 @@ class DoodleClassifier(object):
 
         start = time.time()
 
-        self.select_data()
-        self.concatenate_data()
-
+        self.num_instance = 5000
+        self.load_selected_data()
+        
         user_layer.insert(0, 28 * 28)
         user_layer.append(len(self.names))
+
         self.layers = user_layer
-        self.NN = NeuralNetwork(self.layers, self.names, self.learning_rate, self.epoch)
-        self.NN.train(self.all_data)
+        self.NN = NeuralNetwork(self.layers, self.names, l_rate=0.1)
+        self.NN.tf(self.data_X, self.data_Y, self.test_X, self.test_Y)
+        print()
+        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, optimizer="L2")
         self.calculate_accuracy()
 
         print("time taken: {0:.2f} sec".format(time.time() - start))
 
     def show(self):
-        all_data = None
         first = True
+        data = []
 
         for i in range(self.num_data):
             if self.data_checkbutton[i].get() == 1:
+                first = False
                 name = self.all_names[i]
-                train, _ = self.prepare_data("data/full_numpy_bitmap_" + name + ".npy", [])
-                if first:
-                    all_data = np.array(train)
-                    first = False
-                else:
-                    all_data = np.concatenate([all_data, train], axis=0)
+                d = np.load("data/full_numpy_bitmap_" + name + ".npy")
+                for x in range(100):
+                    data.append(d[x] / 255.)
 
         if first:
             self.gui.popup_message("mark at least one!")
         else:
-            np.random.shuffle(all_data)
-            self.drawNimage(all_data)
+            random.shuffle(data)
+            self.drawNimage(np.array(data), N=10)
 
-    def select_data(self):
+    def load_selected_data(self):
         index = 0
         length = len(self.names)
         for name in self.names:
             target = [1 if index == x else 0 for x in range(length)]
-            self.selected_data[index] = [name, target]
-            train, test = self.prepare_data("data/full_numpy_bitmap_" + name + ".npy", target)
-            self.train_and_test[index] = [train, test]
+            self.load_data("data/full_numpy_bitmap_" + name + ".npy", target)
             index += 1
+        
+        m = self.data_X.shape[0]
 
-    def concatenate_data(self):
-        self.all_data = np.array(self.train_and_test[0][0])
-        length = len(self.train_and_test)
+        indices = np.arange(m)
+        np.random.shuffle(indices)
+        self.data_X = self.data_X[indices]
+        self.data_Y = self.data_Y[indices]
 
-        for index in range(1, length):
-            self.all_data = np.concatenate([self.all_data, self.train_and_test[index][0]], axis=0)
+        self.test_X = self.data_X[0:int(m * 0.1)]
+        self.data_X = self.data_X[int(m * 0.1):m]
 
-        np.random.shuffle(self.all_data)
+        self.test_Y = self.data_Y[0:int(m * 0.1)]
+        self.data_Y = self.data_Y[int(m * 0.1):m]
 
-    def prepare_data(self, name, y):
+        # self.drawNimage(self.data_X, N=20)
+        # self.drawNimage(self.test_X, N=15)
+
+        print("train -> X:", self.data_X.shape, self.data_Y.shape)
+        print(" test -> X:", self.test_X.shape, self.test_Y.shape)
+
+    def load_data(self, name, y):
         data = np.load(name)
         data = data[:self.num_instance]
-
-        data_training = np.array([(np.divide(d, 255), y) for d in data[:int(len(data) * 0.8)]])
-        data_testing = np.array([(np.divide(d, 255), y) for d in data[len(data_training):len(data)]])
-
-        return data_training, data_testing
+        if y[0] == 1:
+            self.data_X = data / 255.
+            self.data_Y = np.full((data.shape[0], len(y)), y)
+        else:
+            self.data_X = np.vstack((self.data_X, data / 255.))
+            temp = np.full((data.shape[0], len(y)), y)
+            self.data_Y = np.vstack((self.data_Y, temp))
 
     def calculate_accuracy(self):
-        length = len(self.train_and_test)
-        for index in range(length):
-            acc = self.NN.accuracy(self.train_and_test[index][1])
-            print("accuracy {}: %{}".format(self.selected_data[index][0], acc), end=", ")
+        train_acc = self.NN.accuracy(self.data_X.T, self.data_Y.T)
+        test_acc = self.NN.accuracy(self.test_X.T, self.test_Y.T)
+        print("train acc: %{:.2f}, test acc: %{:.2f}".format(train_acc, test_acc))
 
     def draw_canvas(self, event):
         x1, y1 = (event.x - 0.5), (event.y - 0.5)
@@ -185,15 +203,15 @@ class DoodleClassifier(object):
         img_data = np.full((28 * N, 28 * N), 255, dtype=np.uint8)
         for pos in range(N * N):
             x_off = (pos // N) * 28
-            y_off = (pos % N) * 28
+            y_off = (pos  % N) * 28
             for i in range(28):
                 for j in range(28):
-                    if i == 27 or j == 27:
+                    if i == 0 or i == 27 or j == 0 or j == 27:
                         x = x_off + i
                         y = y_off + j
                         img_data[x, y] = 0
                     else:
-                        a = data[pos][0][i * 28 + j]
+                        a = data[pos][i * 28 + j]
                         x = x_off + i
                         y = y_off + j
                         value = 255 - a * 255
@@ -221,7 +239,7 @@ class DoodleClassifier(object):
                 brightness = ceil(0.2126 * data[0] + 0.7152 * data[1] + 0.0722 * data[2]) / 255
                 self.painted.append(1 - brightness)
 
-        # self.drawNimage([[self.painted, []]], N=1)
+        # self.drawNimage(self.painted, N=1)
 
         predict_picture = self.NN.predict(self.painted)
         self.textArea.delete("1.0", tk.END)
@@ -250,8 +268,8 @@ class DoodleClassifier(object):
 
     def button_save_nn_f(self):
         self.button_save_nn.pack_forget()
-        self.nn.save()
-
+        self.NN.save()
+    
     def predicted_false(self):
         self.button_true.pack_forget()
         self.button_false.pack_forget()
@@ -276,8 +294,9 @@ class DoodleClassifier(object):
                 break
             index += 1
 
-        train_user_input = np.array([np.array(self.painted), target])
-        self.NN.train(train_user_input, single=True)
+        data = np.array(self.painted).reshape(len(self.painted), 1)
+        target = np.array(target).reshape(len(target), 1)
+        self.NN.train(data, target, self.test_X.T, self.test_Y.T)
 
         if self.data_exist:
             self.calculate_accuracy()
@@ -291,7 +310,7 @@ class DoodleClassifier(object):
     def button_clear_f(self):
         self.painted.clear()
         self.img = None
-        self.img_original = None
+        # self.img_original = None
         self.canvas.delete("all")
         self.textArea.delete("1.0", tk.END)
         self.textArea.insert("1.0", "draw a " + self.names.__str__()[1:-2] + "!")
@@ -308,7 +327,6 @@ class DoodleClassifier(object):
         self.textArea.grid()
 
         self.canvas.bind("<B1-Motion>", self.draw_canvas)
-
 
 if __name__ == '__main__':
     DoodleClassifier()
