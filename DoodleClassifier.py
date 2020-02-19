@@ -113,16 +113,18 @@ class DoodleClassifier(object):
 
         start = time.time()
 
+        self.num_instance = 5000
         self.load_selected_data()
 
         user_layer.insert(0, 28 * 28)
         user_layer.append(len(self.names))
 
+        user_layer = [784, 64, 32, 3]
         self.layers = user_layer
         self.NN = NeuralNetwork(self.layers, self.names, l_rate=0.01)
-        # self.NN.tf(self.data_X, self.data_Y, self.test_X, self.test_Y)
+        self.NN.tf(self.data_X, self.data_Y, self.test_X, self.test_Y)
         print()
-        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, optimizer="adam")
+        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, _cost="multi-label", optimizer="adam")
         self.calculate_accuracy()
 
         print("time taken: {0:.2f} sec".format(time.time() - start))
@@ -168,9 +170,6 @@ class DoodleClassifier(object):
 
         # self.drawNimage(self.data_X, N=20)
         # self.drawNimage(self.test_X, N=15)
-
-        print("train -> X:", self.data_X.shape, self.data_Y.shape)
-        print(" test -> X:", self.test_X.shape, self.test_Y.shape)
 
     def load_data(self, name, y):
         data = np.load(name)
@@ -237,8 +236,12 @@ class DoodleClassifier(object):
 
         predict_picture = self.NN.predict(self.painted)
         self.textArea.delete("1.0", tk.END)
-        print("it is a " + self.names[predict_picture])
-        self.textArea.insert("1.0", "it is a " + self.names[predict_picture])
+        if predict_picture == -1:
+            print("Sorry, I couldn't guess it")
+            self.textArea.insert("1.0", "Sorry, I couldn't guess it")
+        else:
+            print("It is a " + self.names[predict_picture])
+            self.textArea.insert("1.0", "It is a " + self.names[predict_picture])
 
         self.user_feedback()
 
@@ -306,7 +309,7 @@ class DoodleClassifier(object):
         self.img = None
         self.canvas.delete("all")
         self.textArea.delete("1.0", tk.END)
-        self.textArea.insert("1.0", "draw a " + self.names.__str__()[1:-2] + "!")
+        self.textArea.insert("1.0", "Draw a " + self.names.__str__()[1:-1] + "!")
 
     def pack_draw_area(self):
         self.canvas.pack(fill=tk.BOTH)

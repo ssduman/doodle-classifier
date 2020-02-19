@@ -14,6 +14,10 @@ class NeuralNetwork(object):
         self.fig, self.ax = plt.subplots()
         self.precision = 0
         self.title = ""
+        self.beta1 = 0.9
+        self.beta2 = 0.999
+        self.epsilon = 1e-8,
+        self.soft = False
 
         if from_load:
             self.biases = np.load("biases.npy", allow_pickle=True)
@@ -32,11 +36,14 @@ class NeuralNetwork(object):
             output = self.relu(np.dot(self.weights[l], A) + self.biases[l])
             A = output
 
-        output = self.sigmoid(np.dot(self.weights[self.L - 1], A) + self.biases[self.L - 1])
+        if self.soft:
+            output = self.softmax(np.dot(self.weights[self.L - 1], A) + self.biases[self.L - 1])
+        else:
+            output = self.sigmoid(np.dot(self.weights[self.L - 1], A) + self.biases[self.L - 1])
 
         return output
 
-    def train(self, train_X, train_Y, test_X, test_Y, _mini=256, beta1=0.9, beta2=0.999, epsilon=1e-8, _cost="cross_entropy", optimizer="none"):
+    def train(self, train_X, train_Y, test_X, test_Y, epoch=5, _mini=256, _cost="cross_entropy", optimizer="none"):
         assert (train_X.shape[0] == self.weights[0].shape[1])  # train_X.shape -> (input_size, m)
         assert (train_Y.shape[0] == self.layers[-1])
 
@@ -55,10 +62,13 @@ class NeuralNetwork(object):
                 moments.append([np.zeros(self.weights[l].shape), np.zeros(self.biases[l].shape)])
                 adams.append([np.zeros(self.weights[l].shape), np.zeros(self.biases[l].shape)])
 
+        if _cost == "multi-label":
+            self.soft = True
+
         print("m: {}, mini: {}, lr: {}".format(m, mini, self.l_rate))
-        for x in range(25):
+        for x in range(epoch):
             for y in range(0, int(m), mini):
-                m = mini
+                if y + mini >= m: continue
                 data = train_X[:, y:y + mini]
                 Y = train_Y[:, y:y + mini]
                 activation = data
@@ -78,25 +88,32 @@ class NeuralNetwork(object):
 
                 z = np.dot(self.weights[self.L - 1], activation) + self.biases[self.L - 1]
                 Zs.append(z)
-                activation = self.sigmoid(z)
+                if self.soft:
+                    activation = self.softmax(z)
+                else:
+                    activation = self.sigmoid(z)
                 activations.append(activation)
 
                 dZ = None
                 predict = activations[-1]
                 if _cost == "cross_entropy":
-                    self.cost(costs, test_costs, m, predict, Y, test_X, test_Y, optimizer=optimizer, _cost=_cost)
-                    dA = -(np.divide(Y, predict) - np.divide(1. - Y, 1. - predict)) / m
-                    dZ = dA * self.sigmoid_backward(Zs[-1])
+                    self.cost(costs, test_costs, mini, predict, Y, test_X, test_Y, optimizer=optimizer)
+                    dA = -(np.divide(Y, predict) - np.divide(1. - Y, 1. - predict)) / mini  # dCost / dPredict
+                    dZ = dA * self.sigmoid_backward(Zs[-1])  # dPredict / dZ[last]
+
+                if _cost == "multi-label":
+                    self.cost(costs, test_costs, mini, predict, Y, test_X, test_Y, optimizer=optimizer, _cost="multi")
+                    dZ = predict - Y / mini  # dPredict / dZ[last]
 
                 if _cost == "mean_square":
                     self.cost(costs, test_costs, m, predict, Y, test_X, test_Y, optimizer=optimizer, _cost=_cost)
-                    dA = (Y - predict) / m
+                    dA = (Y - predict) / mini
                     dZ = dA * self.softmax_backward(Zs[-1])
 
-                dW = np.dot(dZ, activations[-2].T) / m
+                dW = np.dot(dZ, activations[-2].T) / mini  # dZ[last] / dW[last]
                 if optimizer == "L2":
-                    dW += self.L2(m, dW=-1, where="backprop")
-                db = np.sum(dZ, axis=1, keepdims=True) / m
+                    dW += self.L2(mini, dW=-1, where="backprop")
+                db = np.sum(dZ, axis=1, keepdims=True) / mini  # dZ[last] / db[last]
 
                 grads_W.append(dW)
                 grads_b.append(db)
@@ -109,7 +126,7 @@ class NeuralNetwork(object):
 
                     dW = np.dot(dZ, activations[l].T)
                     if optimizer == "L2":
-                        dW += self.L2(m, dW=l, where="backprop")
+                        dW += self.L2(mini, dW=l, where="backprop")
                     db = np.sum(dZ, axis=1, keepdims=True)
 
                     grads_W.append(dW)
@@ -117,33 +134,32 @@ class NeuralNetwork(object):
 
                 for i in range(len(grads_W)):  # update parameters
                     if optimizer == "momentum":
-                        moments[-i - 1][0] = beta1 * moments[-i - 1][0] + (1 - beta1) * grads_W[i]
-                        moments[-i - 1][1] = beta1 * moments[-i - 1][1] + (1 - beta1) * grads_b[i]
+                        moments[-i - 1][0] = self.beta1 * moments[-i - 1][0] + (1 - self.beta1) * grads_W[i]
+                        moments[-i - 1][1] = self.beta1 * moments[-i - 1][1] + (1 - self.beta1) * grads_b[i]
                         self.weights[-i - 1] -= self.l_rate * moments[-i - 1][0]
                         self.biases[-i - 1] -= self.l_rate * moments[-i - 1][1]
 
                     elif optimizer == "adam":
-                        moments[-i - 1][0] = beta1 * moments[-i - 1][0] + (1 - beta1) * grads_W[i]
-                        moments[-i - 1][1] = beta1 * moments[-i - 1][1] + (1 - beta1) * grads_b[i]
+                        moments[-i - 1][0] = self.beta1 * moments[-i - 1][0] + (1 - self.beta1) * grads_W[i]
+                        moments[-i - 1][1] = self.beta1 * moments[-i - 1][1] + (1 - self.beta1) * grads_b[i]
 
-                        part1_W = moments[-i - 1][0] / (1 - beta1 ** 2)
-                        part1_b = moments[-i - 1][1] / (1 - beta1 ** 2)
+                        part1_W = moments[-i - 1][0] / (1 - self.beta1 ** 2)
+                        part1_b = moments[-i - 1][1] / (1 - self.beta1 ** 2)
 
-                        adams[-i - 1][0] = beta2 * adams[-i - 1][0] + (1 - beta2) * (grads_W[i] ** 2)
-                        adams[-i - 1][1] = beta2 * adams[-i - 1][1] + (1 - beta2) * (grads_b[i] ** 2)
+                        adams[-i - 1][0] = self.beta2 * adams[-i - 1][0] + (1 - self.beta2) * (grads_W[i] ** 2)
+                        adams[-i - 1][1] = self.beta2 * adams[-i - 1][1] + (1 - self.beta2) * (grads_b[i] ** 2)
 
-                        part2_W = adams[-i - 1][0] / (1 - beta2 ** 2)
-                        part2_b = adams[-i - 1][1] / (1 - beta2 ** 2)
+                        part2_W = adams[-i - 1][0] / (1 - self.beta2 ** 2)
+                        part2_b = adams[-i - 1][1] / (1 - self.beta2 ** 2)
 
-                        self.weights[-i - 1] -= self.l_rate * (part1_W / (np.sqrt(part2_W) + epsilon))
-                        self.biases[-i - 1] -= self.l_rate * (part1_b / (np.sqrt(part2_b) + epsilon))
+                        self.weights[-i - 1] -= self.l_rate * (part1_W / (np.sqrt(part2_W) + self.epsilon))
+                        self.biases[-i - 1] -= self.l_rate * (part1_b / (np.sqrt(part2_b) + self.epsilon))
 
                     else:
                         self.weights[-i - 1] -= self.l_rate * grads_W[i]
                         self.biases[-i - 1] -= self.l_rate * grads_b[i]
 
-            # if x % 20 == 0:
-            print("#: {}, train cost: {:.4f}, test cost: {:.4f}".format(x, costs[-1], test_costs[-1]))
+            print("{}/{}, train cost: {:.4f}, test cost: {:.4f}".format(x + 1, epoch, costs[-1], test_costs[-1]))
 
         self.title = "#: " + str(Y.shape[0]) + ", l_r: " + str(self.l_rate)
         self.ax.plot(costs, label="train")
@@ -181,6 +197,8 @@ class NeuralNetwork(object):
 
         print("output from nn: {} -> sum: {}".format(output, np.sum(output)))
         predictions = np.argmax(output)
+        if output[predictions] < 0.5:
+            predictions = -1
         return predictions
 
     def accuracy(self, test_data, Y):
@@ -207,6 +225,17 @@ class NeuralNetwork(object):
             test_costs.append(test_cost)
 
             cost = (np.sum(Y * np.log(predict) + (1. - Y) * np.log(1. - predict))) / -m
+            if optimizer == "L2":
+                cost += self.L2(m)
+            costs.append(cost)
+
+        elif _cost == "multi":
+            test_predict = self.feedforward(test_X)
+            m_t = float(test_X.shape[1])
+            test_cost = (np.sum(test_Y * np.log(test_predict))) / -m_t
+            test_costs.append(test_cost)
+
+            cost = (np.sum(Y * np.log(predict))) / -m
             if optimizer == "L2":
                 cost += self.L2(m)
             costs.append(cost)
@@ -269,11 +298,11 @@ class NeuralNetwork(object):
             tf.keras.layers.Flatten(input_shape=(28, 28)),
             tf.keras.layers.Dense(64, activation="relu"),
             tf.keras.layers.Dense(32, activation="relu"),
-            tf.keras.layers.Dropout(0.2),
+            # tf.keras.layers.Dropout(0.2),
             tf.keras.layers.Dense(self.layers[-1], activation="softmax")
         ])
         loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
         model.compile(optimizer="adam", loss=loss_fn, metrics=["accuracy"])
         model.fit(x_train, y_train, epochs=5, verbose=2)
         acc = model.evaluate(x_test, y_test)
-        print("tf loss: {:.4f}, acc: %{:.4f}".format(acc[0], acc[1] * 100))
+        print("tf loss: {:.4f}, acc: %{:.2f}".format(acc[0], acc[1] * 100))
