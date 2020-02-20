@@ -28,7 +28,7 @@ A neural network classifier. *See test/ for images*
 ## Usage: ##
 - **Create the neural net:**
 ```python
-NeuralNetwork(layers, names, l_rate=0.01)
+NeuralNetwork(layers, l_rate=0.01)
 ```
 - **Train:**
 ```python
