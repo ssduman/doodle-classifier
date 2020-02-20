@@ -119,7 +119,6 @@ class DoodleClassifier(object):
         user_layer.insert(0, 28 * 28)
         user_layer.append(len(self.names))
 
-        user_layer = [784, 64, 32, 3]
         self.layers = user_layer
         self.NN = NeuralNetwork(self.layers, self.names, l_rate=0.01)
         self.NN.tf(self.data_X, self.data_Y, self.test_X, self.test_Y)
