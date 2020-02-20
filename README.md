@@ -17,7 +17,7 @@ A neural network classifier. *See test/ for images*
 * Tensorflow (If not installed, just remove it)
 * Tested on Python 3.7.6 x64
 ## Run: ##
-`*$* python DoodleClassifier.py`
+`$ python DoodleClassifier.py`
 ## Benchmarks: ##
 1. `tf.keras.datasets.mnist`:
    - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->sigmoid_: %96.27
