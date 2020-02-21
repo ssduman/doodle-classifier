@@ -119,12 +119,22 @@ class DoodleClassifier(object):
         user_layer.insert(0, 28 * 28)
         user_layer.append(len(self.names))
 
-        user_layer = [784, 64, 32, 3]   # better to change it here
+        user_layer = [784, 64, 32, len(self.names)] # better to change it here
         self.layers = user_layer
         self.NN = NeuralNetwork(self.layers, self.names)
         self.NN.tf(self.data_X, self.data_Y, self.test_X, self.test_Y)
-        print()
-        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, l_rate=0.01, optimizer="adam")
+        config = {
+            "epoch": 10,
+        }
+        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, config)
+        self.calculate_accuracy()
+
+        self.NN.reset_parameters([784, 64, 32, 16, len(self.names)])
+        config = {
+            "epoch": 5,
+            "regularization": "L2"
+        }
+        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, config)
         self.calculate_accuracy()
 
         print("time taken: {0:.2f} sec".format(time.time() - start))
