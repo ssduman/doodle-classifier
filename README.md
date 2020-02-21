@@ -3,8 +3,9 @@ A neural network classifier. *See test/ for images*
 ## Specifications: ##
 * Interactive GUI in Tkinter, allows to the user choose various settings
 * Neural network can run up to 4 layers (without changing the source code)
-* Supports L2, adam and dropout
+* Supports L2, Dropout regularizations and Adam, momentum, mini batch optimizers and various loss function
 * Plots cost and accuracy of train and test data and saves.
+* Resets paramenters according to new layers or old one.
 * Predicts doodles with Google Quick, Draw Dataset
 * Shows selected images from data
 * Saves biases and weights of the neural network or loads
@@ -14,7 +15,7 @@ A neural network classifier. *See test/ for images*
 * Pillow
 * Numpy
 * Matplotlib
-* Tensorflow (If not installed, just remove it)
+* Tensorflow (If not installed, just remove it from code)
 * Tested on Python 3.7.6 x64
 ## Run: ##
 `$ python DoodleClassifier.py`
@@ -39,11 +40,25 @@ NeuralNetwork(layers)
 ```
 - **Train:**
 ```python
-NeuralNetwork.train(x_train, y_train, x_test, y_test, l_rate=0.01, epoch=5, batch_size=256, optimizer="adam")
+# defaults, change or delete any of them
+config = {
+   "l_rate" : 0.01, 
+   "epoch" : 5, 
+   "batch_size" : 256, 
+   "loss" : "cross_entropy",   # "cross_entropy", "multi_label", "mean_square"
+   "optimization" : "adam",    # "adam", "momentum"
+   "regularization" : "none"   # "dropout", "L2"
+}
+
+NeuralNetwork.train(x_train, y_train, x_test, y_test, config)
 ```
 - **Calculate accuracy:**
 ```python
 NeuralNetwork.accuracy(x_test, y_test)
+```
+- **Reset parameters:**
+```python
+NeuralNetwork.reset_parameters(new_layer)
 ```
 ### Bugs: ###
 * plit.close() also closes Tkinter. If plt not closed, program runs at background. (see [#13470](https://github.com/matplotlib/matplotlib/issues/13470))
