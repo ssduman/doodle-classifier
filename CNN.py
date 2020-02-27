@@ -29,48 +29,42 @@ classes = {
 }
 
 class CNN(object):
-    def __init__(self, layers=[8], f=3):
+    def __init__(self, layers=[3, 8, 16], f=3):
         self.images = np.zeros(shape=[50000, 32, 32, 3], dtype=float)
         self.labels = np.zeros(shape=[50000], dtype=int)
         self.load_data()
         # self.visualize_data()
 
-        # a = np.random.rand(32, 32, 3) * 10
-        # print(a.shape)
-        # a = self.pooling(a, 32, 32, 3)
-        # print(a.shape)
-
         self.test_img = self.images[0]
-        self.layers = layers
-        self.L = len(layers)
-        self.filters = np.array([np.random.rand(x, 3, 3, 3) / 9 for x in layers])
-        print(self.filters.shape)
-        print(self.filters[0].shape)
+        self.layers = layers[1:]
+        self.L = len(layers) - 1
+        self.filters = np.array([np.random.rand(layers[x + 1], 3, 3, layers[x]) / 9 for x in range(len(layers) - 1)])
+        self.biases = np.array([np.zeros((x,1, 1)) for x in self.layers])
+        print("filter:", self.filters.shape)
         for i in range(self.L):
-            for j in range(self.layers[i]):
-                print(self.filters[i][j].shape)
+            print(self.filters[i].shape)
         self.conv()
         # gaussian_blur_3x3 = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]) / 16
         # self.lena(filename="Lenna.png", Filter=gaussian_blur_3x3)
     
-    def conv(self):
+    def conv(self): # it is "conv2d"
         for l in range(self.L):
             f = self.filters[l].shape[0]
             h = self.test_img.shape[0]
             w = self.test_img.shape[1]
             output = np.zeros((h - 2, w - 2, self.layers[l]))
-            print("test_img:", self.test_img.shape)
+            print("test_img:", self.test_img.shape) # (32, 32, 3)
             for i in range(h - 2):
                 for j in range(w - 2):
                     output[i, j] = np.sum(self.test_img[i:i+3, j:j+3] * self.filters[l])
             
-            print("output:", output.shape)
+            print("output:", output.shape)  # (30, 30, 8)
             output = self.pooling(output, h - 2, w - 2, self.layers[l])
-            print("output:", output.shape)
-            self.test_img = output
-            # order?
-            # pool
-            # reLu
+            print("output:", output.shape)  # (15, 15, 8)
+            self.test_img = self.relu(output, l)
+            
+        self.test_img = self.flatten_img(self.test_img)
+        print("test_img:", self.test_img.shape)
 
     def pooling(self, array, h, w, nc, mode="maxpool", f=2, pad=0, stride=2):
         h_m = int((h + 2 * pad - f) / stride + 1)
@@ -90,6 +84,12 @@ class CNN(object):
                     pool[x, y] = np.sum(array[i:i+f, j:j+f], axis=(0, 1)) / (f * f)
 
         return pool
+
+    def relu(self, array, l):
+        return np.maximum(array + self.biases[l].T, 0)
+
+    def flatten_img(self, array):
+        return array.flatten()
 
     def load_data(self):
         begin = 0
