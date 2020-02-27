@@ -43,8 +43,12 @@ class CNN(object):
         self.test_img = self.images[0]
         self.layers = layers
         self.L = len(layers)
-        self.filters = np.array([np.random.rand(f, f, x) / 9 for x in layers])
-
+        self.filters = np.array([np.random.rand(x, 3, 3, 3) / 9 for x in layers])
+        print(self.filters.shape)
+        print(self.filters[0].shape)
+        for i in range(self.L):
+            for j in range(self.layers[i]):
+                print(self.filters[i][j].shape)
         self.conv()
         # gaussian_blur_3x3 = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]) / 16
         # self.lena(filename="Lenna.png", Filter=gaussian_blur_3x3)
@@ -58,7 +62,6 @@ class CNN(object):
             print("test_img:", self.test_img.shape)
             for i in range(h - 2):
                 for j in range(w - 2):
-                    print("->", self.test_img[i:i+3, j:j+3])
                     output[i, j] = np.sum(self.test_img[i:i+3, j:j+3] * self.filters[l])
             
             print("output:", output.shape)
