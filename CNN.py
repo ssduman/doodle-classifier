@@ -35,61 +35,98 @@ class CNN(object):
         self.load_data()
         # self.visualize_data()
 
-        self.test_img = self.images[0]
+        self.batch_size = 16
+        self.test_img = self.images[:self.batch_size] / 255. - 0.5
         self.layers = layers[1:]
         self.L = len(layers) - 1
         self.filters = np.array([np.random.rand(layers[x + 1], 3, 3, layers[x]) / 9 for x in range(len(layers) - 1)])
-        self.biases = np.array([np.zeros((x,1, 1)) for x in self.layers])
-        print("filter:", self.filters.shape)
+        self.biases = np.array([np.zeros((x, 1, 1)) for x in self.layers])
+        print("filter:", self.filters.shape)    # (2,)
         for i in range(self.L):
-            print(self.filters[i].shape)
+            print(self.filters[i].shape)    # (8, 3, 3, 3), (16, 3, 3, 8)
         self.conv()
+        
         # gaussian_blur_3x3 = np.array([[1, 2, 1], [2, 4, 2], [1, 2, 1]]) / 16
-        # self.lena(filename="Lenna.png", Filter=gaussian_blur_3x3)
+        # sobel = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]])
+        # self.lena(filename="valve.png", Filter=sobel)
     
     def conv(self): # it is "conv2d"
-        for l in range(self.L):
+        for l in range(self.L): # first iteration | second iteration
             f = self.filters[l].shape[0]
-            h = self.test_img.shape[0]
-            w = self.test_img.shape[1]
-            output = np.zeros((h - 2, w - 2, self.layers[l]))
-            print("test_img:", self.test_img.shape) # (32, 32, 3)
+            h = self.test_img[0].shape[0]
+            w = self.test_img[0].shape[1]
+            print("h: {}, w: {}".format(h, w))  # h: 32, w: 32 | h: 15, w: 15
+            output = np.zeros((self.batch_size, h - 2, w - 2, self.layers[l]))
+            print("test_img:", self.test_img.shape) # (16, 32, 32, 3) | (16, 15, 15, 8)
             for i in range(h - 2):
                 for j in range(w - 2):
-                    output[i, j] = np.sum(self.test_img[i:i+3, j:j+3] * self.filters[l])
+                    for x in range(self.batch_size):
+                        output[x, i, j] = np.sum(self.test_img[x, i:i+3, j:j+3] * self.filters[l])
             
-            print("output:", output.shape)  # (30, 30, 8)
+            print("output:", output.shape)  # (16, 30, 30, 8) | (16, 13, 13, 16)
             output = self.pooling(output, h - 2, w - 2, self.layers[l])
-            print("output:", output.shape)  # (15, 15, 8)
+            print("output:", output.shape)  # (16, 15, 15, 8) | (16, 6, 6, 16)
             self.test_img = self.relu(output, l)
             
-        self.test_img = self.flatten_img(self.test_img)
-        print("test_img:", self.test_img.shape)
+        # self.test_img = self.flatten_img(self.test_img)
+        self.test_img = self.test_img.reshape(-1, self.batch_size)
+        print("test_img:", self.test_img.shape) # (576, 16)
+        self.test_img = self.fully_connected()
+        print("test_img:", self.test_img.shape) # (10, 16)
 
     def pooling(self, array, h, w, nc, mode="maxpool", f=2, pad=0, stride=2):
         h_m = int((h + 2 * pad - f) / stride + 1)
         w_m = int((w + 2 * pad - f) / stride + 1)
 
-        pool = np.zeros((h_m, w_m, nc))
+        pool = np.zeros((self.batch_size, h_m, w_m, nc))
 
         for i in range(0, h_m + 1, stride):
             for j in range(0, w_m + 1, stride):
-                x = int(i / stride)
-                y = int(j / stride)
-                if mode == "maxpool":
-                    pool[x, y] = np.amax(array[i:i+f, j:j+f], axis=(0, 1))
-                elif mode == "mimpool":
-                    pool[x, y] = np.amin(array[i:i+f, j:j+f], axis=(0, 1))
-                elif mode == "averagepool":
-                    pool[x, y] = np.sum(array[i:i+f, j:j+f], axis=(0, 1)) / (f * f)
+                for t in range(self.batch_size):
+                    x = int(i / stride)
+                    y = int(j / stride)
+                    if mode == "maxpool":
+                        pool[t, x, y] = np.amax(array[t, i:i+f, j:j+f], axis=(0, 1))
+                    elif mode == "mimpool":
+                        pool[t, x, y] = np.amin(array[t, i:i+f, j:j+f], axis=(0, 1))
+                    elif mode == "averagepool":
+                        pool[t, x, y] = np.sum(array[t, i:i+f, j:j+f], axis=(0, 1)) / (f * f)
 
         return pool
 
+    def fully_connected(self):
+        layers = [576, 32, 10]
+        biases = np.array([np.zeros((x, 1)) for x in layers[1:]])
+        weights = np.array([np.random.randn(layers[x], layers[x - 1]) * np.sqrt(2 / layers[x - 1]) for x in range(1, len(layers))])
+
+        A = self.test_img
+        L = len(layers) - 1
+        for l in range(L - 1):
+            output = self.relu(np.dot(weights[l], A) + biases[l], 0)
+            A = output
+        z = np.dot(weights[L - 1], A) + biases[L - 1]
+        return self.softmax(z - np.max(z))
+
+    def fully_connected_backprop(self):
+        pass
+
+    def pooling_backprop(self):
+        pass
+    
+    def conv_backrop(self):
+        pass
+        
     def relu(self, array, l):
-        return np.maximum(array + self.biases[l].T, 0)
+        return np.maximum(array, 0) #  + self.biases[l].T
 
     def flatten_img(self, array):
         return array.flatten()
+        
+    def softmax(self, array):
+        exps = [np.exp(x) for x in array]
+        sum_of_exps = np.sum(exps)
+        soft = np.array([x / sum_of_exps for x in exps])
+        return soft
 
     def load_data(self):
         begin = 0
@@ -123,8 +160,7 @@ class CNN(object):
         Applies sobel filter for default arguments
         Reference: https://en.wikipedia.org/wiki/Sobel_operator
         If any filter is given, then sobel operator will not apply to the image.
-        Works fine with blur and identity filter. 
-        Edge and sobel filter gives like Sobel-Feldman operator output at Wikipedia page.
+        Sobel filter or any other filters above works fine
 
         Arguments:
         Filter: edge, identity, blur or any other filter like:
@@ -182,7 +218,7 @@ class CNN(object):
         plt.axis(False)
         plt.show()
 
-    def convolution(self, img, h, w, f=3, pad=1, stride=1, Filter=None, RGB=True, remove_noise=False):
+    def convolution_filter(self, img, h, w, f=3, pad=1, stride=1, Filter=None, RGB=True, remove_noise=False):
         if Filter is not None:
             f = Filter.shape[0]
         h_c = int((h + 2 * pad - f) / stride + 1)
