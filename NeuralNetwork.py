@@ -1,8 +1,10 @@
 import numpy as np
+from numpy import linalg as LA
 import matplotlib.pyplot as plt
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # suppress cuda warning
 import tensorflow as tf
+from DoodleClassifier import *
 
 class NeuralNetwork(object):
     def __init__(self, layers=None, names=None, from_load=False, tf=False):
@@ -15,22 +17,21 @@ class NeuralNetwork(object):
         self.soft = False
         self.reset_count = 0
         self.config = {
-            "l_rate": 0.01,
-            "epoch": 5,
-            "batch_size": 256,
-            "loss": "cross_entropy",  # "cross_entropy", "multi_label", "mean_square"
-            "optimization": "adam",  # "adam", "momentum"
-            "regularization": "none"  # "dropout", "L2"
+            "l_rate" : 0.01, 
+            "epoch" : 5, 
+            "batch_size" : 256, 
+            "loss" : "cross_entropy",   # "cross_entropy", "multi_label", "mean_square"
+            "optimization" : "adam",    # "adam", "momentum"
+            "regularization" : "none"   # "dropout", "L2"
         }
 
         if from_load:
             self.biases = np.load("biases.npy", allow_pickle=True)
             self.weights = np.load("weights.npy", allow_pickle=True)
-            self.L = len(self.names) - 1
+            self.L = 9
         else:
             self.biases = np.array([np.zeros((x, 1)) for x in layers[1:]])
-            self.weights = np.array(
-                [np.random.randn(layers[x], layers[x - 1]) * np.sqrt(2 / layers[x - 1]) for x in range(1, len(layers))])
+            self.weights = np.array([np.random.randn(layers[x], layers[x - 1]) * np.sqrt(2 / layers[x - 1]) for x in range(1, len(layers))])
 
         print("layers:", layers)
 
@@ -42,28 +43,30 @@ class NeuralNetwork(object):
 
         if self.soft:
             z = np.dot(self.weights[self.L - 1], A) + self.biases[self.L - 1]
-            output = self.softmax(z - np.max(z))  # self.softmax(z)
+            output = self.softmax(z - np.max(z))    # self.softmax(z)
+            # output = self.softmax(z)    # self.softmax(z)
         else:
             output = self.sigmoid(np.dot(self.weights[self.L - 1], A) + self.biases[self.L - 1])
 
         return output
 
     def train(self, train_X, train_Y, test_X, test_Y, config={}):
-        assert (train_X.shape[0] == self.weights[0].shape[1])  # train_X.shape -> (input_size, m)
-        assert (train_Y.shape[0] == self.layers[-1])
+        assert(train_X.shape[0] == self.weights[0].shape[1])  # train_X.shape -> (input_size, m)
+        assert(train_Y.shape[0] == self.layers[-1])
 
         self.config = {**self.config, **config}
         l_rate = self.config["l_rate"]
         epoch = self.config["epoch"]
         batch_size = self.config["batch_size"]
         loss = self.config["loss"]
-        optimization = self.config["optimization"]
+        optimization  = self.config["optimization"]
         regularization = self.config["regularization"]
 
         for key, value in self.config.items():
             print("\"{}\" : {}".format(key, value))
 
         m = float(train_X.shape[1])
+        print("m: {}".format(m))
         test_costs = []
         costs = []
         test_accs = []
@@ -78,11 +81,17 @@ class NeuralNetwork(object):
             for l in range(self.L):
                 moments.append([np.zeros(self.weights[l].shape), np.zeros(self.biases[l].shape)])
                 adams.append([np.zeros(self.weights[l].shape), np.zeros(self.biases[l].shape)])
-
+        
         if loss == "multi_label":
+            print("sotmax activated")
             self.soft = True
+        
+        threshold = 0.5
 
-        print("m: {}, batch_size: {}, lr: {}".format(m, batch_size, l_rate))
+        self.cost(costs, test_costs, m, train_X, train_Y, test_X, test_Y)
+        accs.append(self.accuracy(train_X, train_Y))
+        test_accs.append(self.accuracy(test_X, test_Y))
+        print("{}/{}, train cost: {:.4f}, test cost: {:.4f}".format(0, epoch, costs[-1], test_costs[-1]))
         for x in range(epoch):
             for y in range(0, int(m), batch_size):
                 if y + batch_size >= m: y = int(m - batch_size - 1)
@@ -106,31 +115,35 @@ class NeuralNetwork(object):
                 z = np.dot(self.weights[self.L - 1], activation) + self.biases[self.L - 1]
                 Zs.append(z)
                 if self.soft:
-                    activation = self.softmax(z - np.max(z))  # self.softmax(z)
+                    activation = self.softmax(z - np.max(z))
                 else:
                     activation = self.sigmoid(z)
                 activations.append(activation)
-
+                
                 dZ = None
                 predict = activations[-1]
                 if loss == "cross_entropy":
                     dA = -(np.divide(Y, predict) - np.divide(1. - Y, 1. - predict)) / batch_size  # dCost / dPredict
-                    dZ = dA * self.sigmoid_backward(Zs[-1])  # dPredict / dZ[last]
+                    dZ = dA * self.sigmoid_backward(Zs[-1]) # dPredict / dZ[last]
 
                 if loss == "multi_label":
-                    # dA = -np.divide(predict, Y) / batch_size
-                    # dZ = dA * self.softmax_backward(Zs[-1] - np.max(Zs[-1]))
-                    dZ = predict - Y / batch_size  # dPredict / dZ[last]
-                    # dZ = (predict - Y) / batch_size  # dPredict / dZ[last]
+                    dZ = (predict - Y) / batch_size
 
                 if loss == "mean_square":
                     dA = (predict - Y) / batch_size
                     dZ = dA * self.sigmoid_backward(Zs[-1])
 
-                dW = np.dot(dZ, activations[-2].T) / batch_size  # dZ[last] / dW[last]
+                dW = np.dot(dZ, activations[-2].T) / batch_size   # dZ[last] / dW[last]
                 if regularization == "L2":
                     dW += self.L2(batch_size, dW=-1, where="backprop")
-                db = np.sum(dZ, axis=1, keepdims=True) / batch_size  # dZ[last] / db[last]
+                db = np.sum(dZ, axis=1, keepdims=True) / batch_size   # dZ[last] / db[last]
+
+                norm = LA.norm(dW)
+                if norm > threshold:
+                    dW = (threshold * dW) / norm
+                norm = LA.norm(db)
+                if norm > threshold:
+                    db = (threshold * db) / norm
 
                 grads_W.append(dW)
                 grads_b.append(db)
@@ -146,6 +159,13 @@ class NeuralNetwork(object):
                         dW += self.L2(batch_size, dW=l, where="backprop")
                     db = np.sum(dZ, axis=1, keepdims=True)
 
+                    norm = LA.norm(dW)
+                    if norm > threshold:
+                        dW = (threshold * dW) / norm
+                    norm = LA.norm(db)
+                    if norm > threshold:
+                        db = (threshold * db) / norm
+
                     grads_W.append(dW)
                     grads_b.append(db)
 
@@ -154,7 +174,7 @@ class NeuralNetwork(object):
                         moments[-i - 1][0] = self.beta1 * moments[-i - 1][0] + (1 - self.beta1) * grads_W[i]
                         moments[-i - 1][1] = self.beta1 * moments[-i - 1][1] + (1 - self.beta1) * grads_b[i]
                         self.weights[-i - 1] -= l_rate * moments[-i - 1][0]
-                        self.biases[-i - 1] -= l_rate * moments[-i - 1][1]
+                        self.biases[-i - 1]  -= l_rate * moments[-i - 1][1]
 
                     elif optimization == "adam":
                         moments[-i - 1][0] = self.beta1 * moments[-i - 1][0] + (1 - self.beta1) * grads_W[i]
@@ -170,12 +190,12 @@ class NeuralNetwork(object):
                         part2_b = adams[-i - 1][1] / (1 - self.beta2 ** 2)
 
                         self.weights[-i - 1] -= l_rate * (part1_W / (np.sqrt(part2_W) + self.epsilon))
-                        self.biases[-i - 1] -= l_rate * (part1_b / (np.sqrt(part2_b) + self.epsilon))
+                        self.biases[-i - 1]  -= l_rate * (part1_b / (np.sqrt(part2_b) + self.epsilon))
 
                     else:
                         self.weights[-i - 1] -= l_rate * grads_W[i]
-                        self.biases[-i - 1] -= l_rate * grads_b[i]
-
+                        self.biases[-i - 1]  -= l_rate * grads_b[i]
+            
             self.cost(costs, test_costs, m, train_X, train_Y, test_X, test_Y)
             accs.append(self.accuracy(train_X, train_Y))
             test_accs.append(self.accuracy(test_X, test_Y))
@@ -183,8 +203,8 @@ class NeuralNetwork(object):
 
             indices = np.arange(int(m))
             np.random.shuffle(indices)
-            train_X = train_X[:, indices]
-            train_Y = train_Y[:, indices]
+            train_X = train_X[:,indices]
+            train_Y = train_Y[:,indices]
 
         title = "classes: " + str(train_Y.shape[0]) + ", l_rate: " + str(l_rate) + ", layers: " + self.layers.__str__()
         self.plot(costs, test_costs, title, "Loss", "cost")
@@ -221,7 +241,7 @@ class NeuralNetwork(object):
 
         print("output from nn: {} -> sum: {}".format(output, np.sum(output)))
         predictions = np.argmax(output)
-        if output[predictions] < 0.5:
+        if output[predictions] < 0.5: 
             predictions = -1
         return predictions
 
@@ -256,22 +276,24 @@ class NeuralNetwork(object):
             test_predict = self.feedforward(test_X)
             m_t = float(test_X.shape[1])
             test_cost = (np.sum(test_Y * np.log(test_predict) + (1. - test_Y) * np.log(1. - test_predict))) / -m_t
-            test_costs.append(test_cost)  # L2 for test data also?
+            test_costs.append(test_cost)    # L2 for test data also?
 
             train_predict = self.feedforward(train_X)
             cost = (np.sum(train_Y * np.log(train_predict) + (1. - train_Y) * np.log(1. - train_predict))) / -m
             if regularization == "L2":
                 cost += self.L2(m)
             costs.append(cost)
-
+        
         elif loss == "multi_label":
             test_predict = self.feedforward(test_X)
             m_t = float(test_X.shape[1])
             test_cost = (np.sum(test_Y * np.log(test_predict))) / -m_t
+            # test_cost = (np.sum(np.nan_to_num(test_Y * np.log(test_predict) + (1. - test_Y) * np.log(1. - test_predict)))) / -m_t
             test_costs.append(test_cost)
 
             train_predict = self.feedforward(train_X)
             cost = (np.sum(train_Y * np.log(train_predict))) / -m
+            # cost = (np.sum(np.nan_to_num(train_Y * np.log(train_predict) + (1. - train_Y) * np.log(1. - train_predict)))) / -m
             if regularization == "L2":
                 cost += self.L2(m)
             costs.append(cost)
@@ -296,34 +318,40 @@ class NeuralNetwork(object):
 
     def softmax(self, data):
         exps = [np.exp(x) for x in data]
-        sum_of_exps = np.sum(exps)
+        sum_of_exps = np.sum(exps, axis=0)
         soft = np.array([x / sum_of_exps for x in exps])
         return soft
 
-    def softmax_backward(self, x):
-        return x * (1. - x)
+    def softmax_backward(self, x, Y):
+        output = None
+        for i in range(x.shape[1]):
+            diag = np.sum(np.diag(x[:,i]) - np.dot(x[:,i], x[:,i].T), axis=0)
+            if output is None:
+                output = diag
+            else:
+                output = np.vstack((output, diag))
+        return output.T
 
     def sigmoid(self, z):
         return 1.0 / (1.0 + np.exp(-z))
 
     def sigmoid_backward(self, z):
         return self.sigmoid(z) * (1 - self.sigmoid(z))
-
+    
     def save(self):
         np.save("weights", self.weights, allow_pickle=True)
         np.save("biases", self.biases, allow_pickle=True)
         np.savetxt("names.txt", self.names, delimiter=', ', fmt="%s")
 
     def reset_parameters(self, layers=None):
-        if layers == None:
+        if layers == None: 
             layers = self.layers
-        else:
+        else: 
             self.layers = layers
             self.L = len(layers) - 1
         self.reset_count += 1
         self.biases = np.array([np.zeros((x, 1)) for x in layers[1:]])
-        self.weights = np.array(
-            [np.random.randn(layers[x], layers[x - 1]) * np.sqrt(2 / layers[x - 1]) for x in range(1, len(layers))])
+        self.weights = np.array([np.random.randn(layers[x], layers[x - 1]) * np.sqrt(2 / layers[x - 1]) for x in range(1, len(layers))])
 
     def tf(self, x_train, y_train, x_test, y_test):
         x_train = x_train.reshape(x_train.shape[0], 28, 28)
@@ -365,3 +393,6 @@ class NeuralNetwork(object):
         plt.xlabel("Epoch")
         plt.savefig("TFaccuracy.png")
         plt.clf()
+
+if __name__ == '__main__':
+    DoodleClassifier()

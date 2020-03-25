@@ -1,4 +1,7 @@
 from PIL import Image, ImageGrab
+import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" 
+import tensorflow as tf
 import tkinter as tk
 from tkinter import messagebox, ttk
 import time
@@ -7,6 +10,10 @@ from GUI import *
 from math import ceil, floor
 import random
 import os
+
+"""
+- 0.5 to images! 
+"""
 
 class DoodleClassifier(object):
     def __init__(self):
@@ -37,16 +44,16 @@ class DoodleClassifier(object):
 
         self.frame_r_b = tk.Frame(self.root)
         self.button_predict = tk.Button(text="predict", command=self.button_predict_f)
-        self.button_save = tk.Button(text="save", command=lambda: self.img_original.save("draw.png"))
+        self.button_save = tk.Button(text="save", command=lambda : self.img_original.save("draw.png"))
         self.button_clear = tk.Button(text="clear", command=self.button_clear_f)
         self.textArea = tk.Text(self.frame_r_b, font=("", 10), width=25)
-
+        
         self.button_true = tk.Button(self.root, text="True!", command=self.predicted_true)
         self.button_save_nn = tk.Button(self.root, text="Save!", command=self.button_save_nn_f)
         self.button_false = tk.Button(self.root, text="False!", command=self.predicted_false)
         self.label_select_true = tk.Label(self.frame_r_b, text="select true")
         self.combo_box = tk.ttk.Combobox(self.frame_r_b, width=25)
-
+        
         self.data_exist = False
         if os.path.isdir("data"):
             self.data_exist = True
@@ -115,27 +122,44 @@ class DoodleClassifier(object):
 
         self.num_instance = 5000
         self.load_selected_data()
-
+        
         user_layer.insert(0, 28 * 28)
         user_layer.append(len(self.names))
 
-        user_layer = [784, 64, 32, len(self.names)] # better to change it here
+        user_layer = [784, 64, 32, len(self.names)] # TODO, debug purpose
         self.layers = user_layer
         self.NN = NeuralNetwork(self.layers, self.names)
-        self.NN.tf(self.data_X, self.data_Y, self.test_X, self.test_Y)
+
         config = {
-            "epoch": 10,
+            "l_rate" : 0.01, 
+            "epoch" : 5, 
+            "batch_size" : 256, 
+            "loss" : "multi_label",     # "cross_entropy", "multi_label", "mean_square"
+            "optimization" : "adam",    # "adam", "momentum"
+            "regularization" : "none"   # "dropout", "L2"
         }
-        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, config)
+        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, config) 
         self.calculate_accuracy()
 
-        self.NN.reset_parameters([784, 64, 32, 16, len(self.names)])
-        config = {
-            "epoch": 5,
-            "regularization": "L2"
-        }
-        self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, config)
-        self.calculate_accuracy()
+        ## test for tensorflow 
+        # self.NN.tf(self.data_X, self.data_Y, self.test_X, self.test_Y)
+
+        ## test for mnist or fashion mninst:
+        # self.NN = NeuralNetwork([784, 64, 32, 10])
+        # x_train, y_train, x_test, y_test = self.test_mnist("mnist")
+        # self.NN.train(x_train, y_train, x_test, y_test, config) 
+        # train_acc = self.NN.accuracy(x_train, y_train)
+        # test_acc = self.NN.accuracy(x_test, y_test)
+        # print("train acc: %{:.2f}, test acc: %{:.2f}".format(train_acc, test_acc))
+
+        ## reset option
+        # self.NN.reset_parameters([784, 64, 32, 16, len(self.names)])
+        # config = {
+        #     "epoch" : 5, 
+        #     "regularization" : "L2"
+        # }
+        # self.NN.train(self.data_X.T, self.data_Y.T, self.test_X.T, self.test_Y.T, config) 
+        # self.calculate_accuracy()
 
         print("time taken: {0:.2f} sec".format(time.time() - start))
 
@@ -164,7 +188,7 @@ class DoodleClassifier(object):
             target = [1 if index == x else 0 for x in range(length)]
             self.load_data("data/full_numpy_bitmap_" + name + ".npy", target)
             index += 1
-
+        
         m = self.data_X.shape[0]
 
         indices = np.arange(m)
@@ -185,10 +209,10 @@ class DoodleClassifier(object):
         data = np.load(name)
         data = data[:self.num_instance]
         if y[0] == 1:
-            self.data_X = data / 255.
+            self.data_X = data / 255. - 0.5
             self.data_Y = np.full((data.shape[0], len(y)), y)
         else:
-            self.data_X = np.vstack((self.data_X, data / 255.))
+            self.data_X = np.vstack((self.data_X, data / 255. - 0.5))
             temp = np.full((data.shape[0], len(y)), y)
             self.data_Y = np.vstack((self.data_Y, temp))
 
@@ -206,7 +230,7 @@ class DoodleClassifier(object):
         img_data = np.full((28 * N, 28 * N), 255, dtype=np.uint8)
         for pos in range(N * N):
             x_off = (pos // N) * 28
-            y_off = (pos % N) * 28
+            y_off = (pos  % N) * 28
             for i in range(28):
                 for j in range(28):
                     if i == 0 or i == 27 or j == 0 or j == 27:
@@ -276,7 +300,7 @@ class DoodleClassifier(object):
     def button_save_nn_f(self):
         self.button_save_nn.pack_forget()
         self.NN.save()
-
+    
     def predicted_false(self):
         self.button_true.pack_forget()
         self.button_false.pack_forget()
@@ -333,6 +357,28 @@ class DoodleClassifier(object):
         self.textArea.grid()
 
         self.canvas.bind("<B1-Motion>", self.draw_canvas)
+
+    def test_mnist(self, mnist="mnist"):
+        data = None
+        if mnist == "mnist":
+            data = tf.keras.datasets.mnist
+        elif mnist == "fashion_mnist":
+            data = tf.keras.datasets.fashion_mnist
+
+        (x_train, y_train), (x_test, y_test) = data.load_data()
+        x_train, x_test = x_train / 255.0 - 0.5, x_test / 255.0 - 0.5
+
+        x_train = x_train.reshape(x_train.shape[0], x_train.shape[1] * x_train.shape[2]).T
+        temp = np.zeros((y_train.size, y_train.max() + 1))
+        temp[np.arange(y_train.size), y_train] = 1
+        y_train = temp.T
+
+        x_test = x_test.reshape(x_test.shape[0], x_test.shape[1] * x_test.shape[2]).T
+        temp = np.zeros((y_test.size, y_test.max() + 1))
+        temp[np.arange(y_test.size), y_test] = 1
+        y_test = temp.T
+
+        return x_train, y_train, x_test, y_test
 
 if __name__ == '__main__':
     DoodleClassifier()
