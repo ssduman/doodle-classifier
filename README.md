@@ -21,18 +21,15 @@ A neural network classifier. *See test/ for images*
 `$ python DoodleClassifier.py`
 ## Benchmarks: ##
 1. `tf.keras.datasets.mnist`:
-   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->sigmoid_: %96.27
+   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %95.19
 2. `tf.keras.datasets.fashion_mnist`:
-   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->sigmoid_: %85.78
+   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %86.82
 3. Google Quick, Draw Dataset (3 images, 5000 examples per):
-   - Neural Net: [28 \* 28, 64, 32, 3], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->sigmoid_: %89.40
-   - Neural Net: [28 \* 28, 64, 32, 3], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %88.87
+   - Neural Net: [28 \* 28, 64, 32, 3], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %90.00
 4. Google Quick, Draw Dataset (5 images, 5000 examples per):
-   - Neural Net: [28 \* 28, 64, 32, 5], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->sigmoid_: %86.56
-   - Neural Net: [28 \* 28, 64, 32, 5], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %85.92
+   - Neural Net: [28 \* 28, 64, 32, 5], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %81.44
 4. Google Quick, Draw Dataset (10 images, 5000 examples per):
-   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->sigmoid_: %78.02
-   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %79.96
+   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %77.34
 ## Usage: ##
 - **Create the neural net:**
 ```python
@@ -45,12 +42,16 @@ config = {
    "l_rate" : 0.01, 
    "epoch" : 5, 
    "batch_size" : 256, 
-   "loss" : "cross_entropy",   # "cross_entropy", "multi_label", "mean_square"
+   "loss" : "multi_label",     # "cross_entropy", "multi_label", "mean_square"
    "optimization" : "adam",    # "adam", "momentum"
    "regularization" : "none"   # "dropout", "L2"
 }
 
 NeuralNetwork.train(x_train, y_train, x_test, y_test, config)
+```
+- **Get MNIST:**
+```python
+x_train, y_train, x_test, y_test = DoodleClassifier.test_mnist("mnist") # "mnist", "fashion_mnist"
 ```
 - **Calculate accuracy:**
 ```python
@@ -61,9 +62,8 @@ NeuralNetwork.accuracy(x_test, y_test)
 NeuralNetwork.reset_parameters(new_layer)
 ```
 ### Bugs: ###
-* plit.close() also closes Tkinter. If plt not closed, program runs at background. (see [#13470](https://github.com/matplotlib/matplotlib/issues/13470))
-* Softmax at last layer doesn't work properly. In NeuralNetwork.py, I accidently made `dZ = predict - Y / batch_size`, instead of `dZ = (predict - Y) / batch_size` for multi class classification. This works somehow but the loss is high. I tried `softmax(z - np.max(z))` but accuracy decreases to 1 / labelsize. All other situations, softmax raises "RuntimeWarning: overflow encountered in exp" or loss raises "RuntimeWarning: divide by zero encountered in log".
+* Calling plt.close() also closes Tkinter. If Matplotlib is not closed, program runs at background. (see [#13470](https://github.com/matplotlib/matplotlib/issues/13470))
 * When program predicts false, if you hit false button and do not select true image, that segment does not go away.
 * PILL.ImageGrab support OS X and Windows only.
 
-_Please let me know if there is something wrong_
+_Please let me know if there is something wrong. CNN is under construction._
