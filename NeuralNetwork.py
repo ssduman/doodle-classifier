@@ -3,7 +3,7 @@ from numpy import linalg as LA
 import matplotlib.pyplot as plt
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # suppress cuda warning
-import tensorflow as tf
+# import tensorflow as tf
 from DoodleClassifier import *
 
 class NeuralNetwork(object):
@@ -91,6 +91,7 @@ class NeuralNetwork(object):
         self.cost(costs, test_costs, m, train_X, train_Y, test_X, test_Y)
         accs.append(self.accuracy(train_X, train_Y))
         test_accs.append(self.accuracy(test_X, test_Y))
+        # print("first acc:", accs, test_accs)
         print("{}/{}, train cost: {:.4f}, test cost: {:.4f}".format(0, epoch, costs[-1], test_costs[-1]))
         for x in range(epoch):
             for y in range(0, int(m), batch_size):
@@ -212,6 +213,8 @@ class NeuralNetwork(object):
         title = "Neural network accuracy"
         self.plot(accs, test_accs, title, "Accuracy", "accuracy")
 
+        # print("last acc:", accs, test_accs)
+
     def dropout(self, masks, activation, keep_prob=0.2, layer=0, where="fowardprop"):
         if where == "fowardprop":
             mask = np.random.rand(activation.shape[0], activation.shape[1])
@@ -242,7 +245,8 @@ class NeuralNetwork(object):
         print("output from nn: {} -> sum: {}".format(output, np.sum(output)))
         predictions = np.argmax(output)
         if output[predictions] < 0.5: 
-            predictions = -1
+            # predictions = -1
+            pass
         return predictions
 
     def plot(self, arr1, arr2, title, ylabel, save, label1="train", label2="test", xlabel="Epoch"):
