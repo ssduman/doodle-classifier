@@ -1,7 +1,10 @@
 from PIL import Image, ImageGrab
+import matplotlib.pyplot as plt
+from matplotlib import cm
+import numpy as np
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" 
-import tensorflow as tf
+# import tensorflow as tf
 import tkinter as tk
 from tkinter import messagebox, ttk
 import time
@@ -120,7 +123,7 @@ class DoodleClassifier(object):
 
         start = time.time()
 
-        self.num_instance = 5000
+        # self.num_instance = 5000
         self.load_selected_data()
         
         user_layer.insert(0, 28 * 28)
@@ -128,11 +131,12 @@ class DoodleClassifier(object):
 
         user_layer = [784, 64, 32, len(self.names)] # TODO, debug purpose
         self.layers = user_layer
+        print("selected:", self.names)
         self.NN = NeuralNetwork(self.layers, self.names)
 
         config = {
-            "l_rate" : 0.01, 
-            "epoch" : 5, 
+            "l_rate" : float(self.learning_rate), 
+            "epoch" : int(self.epoch), 
             "batch_size" : 256, 
             "loss" : "multi_label",     # "cross_entropy", "multi_label", "mean_square"
             "optimization" : "adam",    # "adam", "momentum"
@@ -144,9 +148,9 @@ class DoodleClassifier(object):
         ## test for tensorflow 
         # self.NN.tf(self.data_X, self.data_Y, self.test_X, self.test_Y)
 
-        ## test for mnist or fashion mninst:
+        # test for mnist or fashion mninst:
         # self.NN = NeuralNetwork([784, 64, 32, 10])
-        # x_train, y_train, x_test, y_test = self.test_mnist("mnist")
+        # x_train, y_train, x_test, y_test = self.test_mnist("fashion_mnist")
         # self.NN.train(x_train, y_train, x_test, y_test, config) 
         # train_acc = self.NN.accuracy(x_train, y_train)
         # test_acc = self.NN.accuracy(x_test, y_test)
@@ -241,7 +245,7 @@ class DoodleClassifier(object):
                         a = data[pos][i * 28 + j]
                         x = x_off + i
                         y = y_off + j
-                        value = 255 - a * 255
+                        value = 255 - a * 255 # reverse image
                         img_data[x, y] = value
 
         img = Image.fromarray(img_data, mode="L")
@@ -250,12 +254,14 @@ class DoodleClassifier(object):
 
     def take_ss(self):
         # remove scaling factor if you are not using scaling (mine is %125, default is %150)
-        x1 = self.root.winfo_rootx() + (self.root.winfo_rootx() * 0.25) + 5
-        y1 = self.root.winfo_rooty() + (self.root.winfo_rooty() * 0.25) + 5
-        x2 = x1 + self.canvas.winfo_width() + (self.canvas.winfo_width() * 0.25) - 5
-        y2 = y1 + self.canvas.winfo_height() + (self.canvas.winfo_height() * 0.25) - 5
+        x1 = self.root.winfo_rootx() # + (self.root.winfo_rootx() * 0.25) + 5
+        y1 = self.root.winfo_rooty() # + (self.root.winfo_rooty() * 0.25) + 5
+        x2 = x1 + self.canvas.winfo_width() # + (self.canvas.winfo_width() * 0.25) - 5
+        y2 = y1 + self.canvas.winfo_height() # + (self.canvas.winfo_height() * 0.25) - 5
         self.img_original = ImageGrab.grab().crop((x1, y1, x2, y2))
+        # self.img_original.show()
         self.img = self.img_original.resize((28, 28), Image.ANTIALIAS)
+        # self.img.show()
 
     def button_predict_f(self):
         self.take_ss()
@@ -264,9 +270,10 @@ class DoodleClassifier(object):
             for j in range(28):
                 data = list(self.img.getpixel((j, i)))
                 brightness = ceil(0.2126 * data[0] + 0.7152 * data[1] + 0.0722 * data[2]) / 255
-                self.painted.append(1 - brightness)
+                self.painted.append(round(1 - brightness, 1))
 
-        # self.drawNimage(self.painted, N=1)
+        # plt.matshow(np.array(self.painted).reshape((28, 28)), cmap='gray')
+        # plt.show()
 
         predict_picture = self.NN.predict(self.painted)
         self.textArea.delete("1.0", tk.END)
