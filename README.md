@@ -19,17 +19,27 @@ A neural network classifier. *See test/ for images*
 * Tested on Python 3.7.6 x64
 ## Run: ##
 `$ python DoodleClassifier.py`
+<table>
+    <tr>
+        <td align="center">
+            <img src="https://github.com/ssduman/doodle-classifier/blob/master/test/doodle.gif" alt="home-page" width="384" height="450">
+            <br />
+            <i> demo </i>
+        </td>
+    </tr>
+</table>
+
 ## Benchmarks: ##
 1. `tf.keras.datasets.mnist`:
-   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %95.19
+   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: **%95.19**
 2. `tf.keras.datasets.fashion_mnist`:
-   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %86.82
+   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: **%86.82**
 3. Google Quick, Draw Dataset (3 images, 5000 examples per):
-   - Neural Net: [28 \* 28, 64, 32, 3], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %90.00
+   - Neural Net: [28 \* 28, 64, 32, 3], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: **%90.00**
 4. Google Quick, Draw Dataset (5 images, 5000 examples per):
-   - Neural Net: [28 \* 28, 64, 32, 5], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %81.44
+   - Neural Net: [28 \* 28, 64, 32, 5], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: **%81.44**
 4. Google Quick, Draw Dataset (10 images, 5000 examples per):
-   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: %77.34
+   - Neural Net: [28 \* 28, 64, 32, 10], _batch_size_=256, _lr_=0.01, _adam_, _relu->relu->softmax_: **%77.34**
 ## Usage: ##
 - **Create the neural net:**
 ```python
