@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 import numpy as np
 import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3" 
-# import tensorflow as tf
 import tkinter as tk
 from tkinter import messagebox, ttk
 import time

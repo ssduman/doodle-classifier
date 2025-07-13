@@ -15,7 +15,6 @@ A neural network classifier. *See test/ for images*
 * Pillow
 * Numpy
 * Matplotlib
-* Tensorflow (If not installed, just remove it from code)
 * Tested on Python 3.7.6 x64
 ## Run: ##
 `$ python DoodleClassifier.py`

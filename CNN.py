@@ -7,8 +7,6 @@ import pickle
 import time
 import cProfile
 import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-import tensorflow as tf
 
 class CNN(object):
     def __init__(self, layers=[3, 8, 16], fc_layers=[576, 32, 10]):
@@ -456,7 +454,6 @@ class CNN(object):
     def tf(self):
         """
         Code from: https://keras.io/examples/cifar10_cnn/
-        """
         batch_size = 32
         num_classes = 10
         epochs = 100
@@ -505,6 +502,8 @@ class CNN(object):
         scores = model.evaluate(x_test, y_test, verbose=1)
         print('Test loss:', scores[0])
         print('Test accuracy:', scores[1])
+        """
+        return
 
 if __name__ == '__main__':
     cnn = CNN()

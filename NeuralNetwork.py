@@ -2,8 +2,6 @@ import numpy as np
 from numpy import linalg as LA
 import matplotlib.pyplot as plt
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # suppress cuda warning
-# import tensorflow as tf
 from DoodleClassifier import *
 
 class NeuralNetwork(object):
