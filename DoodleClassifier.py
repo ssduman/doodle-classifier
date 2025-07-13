@@ -260,7 +260,7 @@ class DoodleClassifier(object):
         y2 = y1 + self.canvas.winfo_height() # + (self.canvas.winfo_height() * 0.25) - 5
         self.img_original = ImageGrab.grab().crop((x1, y1, x2, y2))
         # self.img_original.show()
-        self.img = self.img_original.resize((28, 28), Image.ANTIALIAS)
+        self.img = self.img_original.resize((28, 28), Image.LANCZOS)
         # self.img.show()
 
     def button_predict_f(self):

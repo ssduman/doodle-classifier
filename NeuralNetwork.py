@@ -28,12 +28,12 @@ class NeuralNetwork(object):
         if from_load:
             self.biases = np.load("biases.npy", allow_pickle=True)
             self.weights = np.load("weights.npy", allow_pickle=True)
-            self.L = 9
+            self.L = 2
         else:
             self.biases = np.array([np.zeros((x, 1)) for x in layers[1:]])
             self.weights = np.array([np.random.randn(layers[x], layers[x - 1]) * np.sqrt(2 / layers[x - 1]) for x in range(1, len(layers))])
 
-        print("layers:", layers)
+        print("layers: {}, len: {}".format(self.layers, self.L))
 
     def feedforward(self, a):
         A = a

@@ -105,7 +105,7 @@ class GUI(object):
             self.hidden_3.grid_remove()
 
         else:
-            self.label_number.configure(text="Please create file named data and\ncopy data into it")
+            self.label_number.configure(text="copy data to folder data\n\n\nor")
             self.label_number.grid()
 
     def get_entries(self):
